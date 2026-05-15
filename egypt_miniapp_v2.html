@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Маат и Сет — v2</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --night:#080e1c; --deep:#1a2744; --indigo:#1e3054;
+  --gold:#c9922a; --gold-l:#e8b84b; --gold-b:#f5d070;
+  --sand:#d4a843; --tg:#f0d080; --dim:#8a9bb5; --wh:#fef9e7;
+  --green:rgba(76,175,80,.85); --red:rgba(200,60,60,.85);
+}
+body { font-family:'Georgia',serif; background:#04060f; display:flex; justify-content:center; align-items:center; min-height:100vh; padding:16px; }
+
+/* ── PHONE ── */
+.phone { width:375px; height:780px; background:var(--night); border-radius:40px; border:2px solid #2a3a5a; overflow:hidden; position:relative; box-shadow:0 0 60px rgba(201,146,42,.15),0 0 120px rgba(0,0,0,.8); }
+
+/* ── SCREENS ── */
+.screen { position:absolute; width:100%; height:100%; overflow:hidden; display:flex; flex-direction:column; }
+.screen.hidden { display:none; }
+
+/* ── BACKGROUND ── */
+.bg { position:absolute; inset:0; background:linear-gradient(180deg,#050a16 0%,#10203a 48%,#1e3010 70%,#9a6e14 83%,#c08820 100%); }
+.stars-layer { position:absolute; inset:0; pointer-events:none; }
+.star { position:absolute; background:var(--gold-b); border-radius:50%; animation:twinkle var(--td,3s) var(--delay,0s) infinite alternate; }
+@keyframes twinkle { from{opacity:.2;transform:scale(1)} to{opacity:.95;transform:scale(1.4)} }
+.moon { position:absolute; top:46px; right:62px; width:58px; height:58px; background:radial-gradient(circle at 38% 38%,#fffce8,#e8d060); border-radius:50%; box-shadow:0 0 28px rgba(232,208,96,.55),0 0 56px rgba(232,208,96,.18); }
+.pyrs { position:absolute; bottom:0; width:100%; }
+.pyr { position:absolute; bottom:0; width:0; height:0; }
+.pb { right:-6px; border-left:145px solid transparent; border-bottom:158px solid #7a5818; filter:brightness(.56); }
+.pm { left:76px; border-left:70px solid transparent; border-right:70px solid transparent; border-bottom:100px solid #6a4e14; filter:brightness(.46); }
+.ps { left:22px; border-left:44px solid transparent; border-right:44px solid transparent; border-bottom:70px solid #5e4210; filter:brightness(.42); }
+.sand-g { position:absolute; bottom:0; width:100%; height:120px; background:linear-gradient(180deg,#a87618 0%,#c08820 35%,#d0a030 65%,#b07818 100%); border-radius:60% 60% 0 0/26px 26px 0 0; }
+
+/* ── TOP TABS ── */
+.tabs { position:absolute; top:10px; left:50%; transform:translateX(-50%); display:flex; gap:3px; z-index:100; background:rgba(5,10,22,.84); border:1px solid rgba(201,146,42,.22); border-radius:20px; padding:4px; }
+.tab { padding:4px 12px; border-radius:16px; font-size:9px; letter-spacing:1px; color:var(--dim); cursor:pointer; transition:all .2s; white-space:nowrap; text-transform:uppercase; user-select:none; }
+.tab.active { background:rgba(201,146,42,.25); color:var(--gold-b); border:1px solid rgba(201,146,42,.4); }
+
+/* ── SHARED ── */
+.card { background:rgba(22,36,62,.88); border:1px solid rgba(201,146,42,.28); border-radius:16px; backdrop-filter:blur(8px); }
+.lbl { font-size:10px; color:var(--dim); letter-spacing:2px; text-transform:uppercase; }
+.divider { height:1px; background:linear-gradient(90deg,transparent,rgba(201,146,42,.38),transparent); margin:10px 0; }
+.btn-gold { padding:14px; background:linear-gradient(135deg,#7a5010,#c9922a,#7a5010); border:1px solid var(--gold-l); border-radius:12px; color:var(--wh); font-size:13px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; cursor:pointer; box-shadow:0 4px 18px rgba(201,146,42,.28); transition:all .2s; width:100%; }
+.btn-gold:hover { transform:translateY(-1px); box-shadow:0 6px 24px rgba(201,146,42,.44); }
+.btn-gold:disabled { opacity:.38; cursor:default; transform:none; }
+.btn-ghost { padding:11px; background:transparent; border:1px solid rgba(201,146,42,.28); border-radius:12px; color:var(--dim); font-size:12px; font-family:'Georgia',serif; letter-spacing:1px; cursor:pointer; transition:all .2s; width:100%; }
+.btn-ghost:hover { border-color:var(--gold); color:var(--tg); }
+
+/* scroll inner */
+.scroll { flex:1; overflow-y:auto; overflow-x:hidden; scrollbar-width:none; }
+.scroll::-webkit-scrollbar { display:none; }
+.inner { padding:0 20px 20px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+
+/* ══════════════════════════════
+   ХРАМ (LOBBY)
+══════════════════════════════ */
+.lobby-hero { display:flex; flex-direction:column; align-items:center; gap:4px; margin-top:8px; }
+.lh-icon { font-size:44px; text-shadow:0 0 18px rgba(245,208,112,.5); }
+.lh-title { font-size:24px; color:var(--gold-b); letter-spacing:4px; text-transform:uppercase; text-shadow:0 0 16px rgba(245,208,112,.4); }
+.lh-sub { font-size:10px; color:var(--dim); letter-spacing:3px; text-transform:uppercase; }
+
+.room-code-block { text-align:center; }
+.rc-label { font-size:10px; color:var(--dim); letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+.rc-val { font-size:20px; color:var(--gold-b); letter-spacing:5px; font-weight:bold; text-shadow:0 0 10px rgba(245,208,112,.35); }
+.rc-hint { font-size:10px; color:var(--dim); margin-top:4px; font-style:italic; }
+
+.players-section { width:100%; }
+.ps-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.ps-count { font-size:10px; color:var(--gold); letter-spacing:1px; }
+
+.player-row { display:flex; align-items:center; gap:10px; padding:10px 14px; background:rgba(14,24,48,.6); border:1px solid rgba(201,146,42,.14); border-radius:10px; margin-bottom:6px; transition:all .3s; }
+.player-row.new { animation:slideIn .4s ease; }
+@keyframes slideIn { from{opacity:0;transform:translateX(-12px)} to{opacity:1;transform:translateX(0)} }
+.pr-ava { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; border:1.5px solid rgba(201,146,42,.3); flex-shrink:0; }
+.pr-info { flex:1; }
+.pr-name { font-size:13px; color:var(--tg); }
+.pr-title { font-size:10px; color:var(--dim); margin-top:1px; font-style:italic; }
+.pr-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.pr-dot.on { background:#4caf50; box-shadow:0 0 5px #4caf50; }
+.pr-dot.wait { background:var(--gold); box-shadow:0 0 5px var(--gold); animation:pulse 1.6s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.lobby-hint { font-size:11px; color:var(--dim); font-style:italic; text-align:center; line-height:1.6; padding:10px 16px; background:rgba(201,146,42,.05); border:1px solid rgba(201,146,42,.12); border-radius:10px; width:100%; }
+
+/* ══════════════════════════════
+   ВОПРОС / ГОЛОСОВАНИЕ (combined)
+══════════════════════════════ */
+.top-bar { width:100%; padding:12px 20px; background:rgba(5,10,22,.75); border-bottom:1px solid rgba(201,146,42,.16); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.tb-left { display:flex; flex-direction:column; gap:1px; }
+.tb-round { font-size:10px; color:var(--dim); letter-spacing:1px; text-transform:uppercase; }
+.tb-who { font-size:13px; color:var(--gold-b); }
+
+/* HOURGLASS TIMER */
+.hg-wrap { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.hg-num { font-size:11px; color:var(--gold-b); letter-spacing:1px; }
+.hourglass { width:28px; height:36px; position:relative; }
+.hg-svg { width:100%; height:100%; }
+.hg-sand-top { animation:drainTop 60s linear forwards; transform-origin:center top; }
+.hg-sand-bot { animation:fillBot 60s linear forwards; transform-origin:center bottom; }
+@keyframes drainTop { from{opacity:1} to{opacity:0} }
+@keyframes fillBot  { from{transform:scaleY(0)} to{transform:scaleY(1)} }
+.hg-flip { animation:flipHg 1s ease-in-out; }
+@keyframes flipHg { 0%{transform:rotate(0)} 50%{transform:rotate(180deg)} 100%{transform:rotate(180deg)} }
+
+/* SUB-TABS (Активный / Свидетели) */
+.role-tabs { display:flex; gap:6px; width:100%; flex-shrink:0; padding:10px 20px 0; }
+.rtab { flex:1; padding:7px; border-radius:10px; font-size:10px; letter-spacing:1px; text-transform:uppercase; text-align:center; cursor:pointer; border:1px solid rgba(201,146,42,.18); color:var(--dim); transition:all .2s; }
+.rtab.active { background:rgba(201,146,42,.15); color:var(--gold-b); border-color:rgba(201,146,42,.38); }
+
+/* question badge */
+.q-badge { display:flex; align-items:center; gap:8px; background:rgba(201,146,42,.09); border:1px solid rgba(201,146,42,.22); border-radius:20px; padding:6px 16px; font-size:11px; color:var(--gold-l); letter-spacing:2px; text-transform:uppercase; align-self:center; }
+
+/* QUESTION CARD */
+.q-card { padding:20px; width:100%; }
+.q-deco { text-align:center; font-size:24px; margin-bottom:10px; opacity:.6; }
+.q-text { font-size:15px; color:var(--tg); line-height:1.75; text-align:center; font-style:italic; }
+
+/* witness card */
+.witness-card { padding:18px; width:100%; }
+.wc-eye { text-align:center; font-size:32px; margin-bottom:10px; animation:eyePulse 3s ease-in-out infinite; }
+@keyframes eyePulse { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.08);opacity:1} }
+.wc-text { font-size:13px; color:var(--tg); line-height:1.75; text-align:center; font-style:italic; opacity:.85; }
+
+/* answer reveal (active player after answering) */
+.answer-reveal { padding:16px 18px; width:100%; border-left:3px solid var(--gold); }
+.ar-lbl { font-size:10px; color:var(--gold); letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+.ar-text { font-size:14px; color:var(--tg); line-height:1.7; font-style:italic; }
+
+/* input fake */
+.input-fake { width:100%; background:rgba(10,18,40,.75); border:1px solid rgba(201,146,42,.18); border-radius:12px; padding:12px 16px; color:var(--dim); font-size:12px; display:flex; align-items:center; gap:8px; }
+.voice-btn { width:100%; padding:12px; background:rgba(42,122,122,.18); border:1px solid rgba(42,122,122,.36); border-radius:12px; color:#6ecece; font-size:12px; font-family:'Georgia',serif; letter-spacing:1px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all .2s; }
+.voice-btn:hover { background:rgba(42,122,122,.3); }
+
+/* ══════════════════════════════
+   СУД (VOTING) — witness view
+══════════════════════════════ */
+.v-scales-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; width:100%; }
+.scales-lbl { font-size:11px; color:var(--dim); letter-spacing:2px; text-transform:uppercase; }
+
+/* SCALES SVG animation */
+.scales-svg { width:140px; height:90px; overflow:visible; }
+.beam { transform-origin:50% 12px; animation:swayBeam 3s ease-in-out infinite; }
+@keyframes swayBeam { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(6deg)} }
+.pan-l { animation:panL 3s ease-in-out infinite; }
+.pan-r { animation:panR 3s ease-in-out infinite; }
+@keyframes panL { 0%,100%{transform:translateY(-6px)} 50%{transform:translateY(6px)} }
+@keyframes panR { 0%,100%{transform:translateY(6px)} 50%{transform:translateY(-6px)} }
+
+/* VOTE BUTTONS as artifacts */
+.vbtns { display:flex; gap:10px; width:100%; }
+.vbtn { flex:1; padding:16px 8px; border-radius:14px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; border:none; transition:all .25s; font-family:'Georgia',serif; position:relative; overflow:hidden; }
+.vbtn::before { content:''; position:absolute; inset:0; border-radius:14px; opacity:0; transition:opacity .25s; }
+.vbtn:hover::before { opacity:1; }
+.vbtn-icon { font-size:28px; transition:transform .3s; }
+.vbtn:hover .vbtn-icon { transform:scale(1.15) rotate(-5deg); }
+.vbtn-name { font-size:12px; letter-spacing:.5px; line-height:1.4; text-align:center; }
+.vbtn-sub { font-size:9px; letter-spacing:1px; text-transform:uppercase; opacity:.65; }
+.vtrust { background:linear-gradient(160deg,rgba(60,120,60,.18),rgba(76,175,80,.22)); border:1px solid rgba(76,175,80,.36); color:#81c784; }
+.vtrust::before { background:rgba(76,175,80,.1); }
+.vtrust:active { transform:scale(.96); }
+.vlie { background:linear-gradient(160deg,rgba(100,20,20,.2),rgba(200,60,60,.2)); border:1px solid rgba(200,60,60,.35); color:#e57373; }
+.vlie::before { background:rgba(200,60,60,.08); }
+.vlie:active { transform:scale(.96); }
+
+/* SCALES progress (fill) */
+.scales-prog { width:100%; padding:12px 16px; }
+.sp-lbl { font-size:10px; color:var(--dim); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:10px; text-align:center; }
+.sp-visual { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.sp-side { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.sp-side-lbl { font-size:10px; color:var(--dim); letter-spacing:1px; }
+.sp-gems { display:flex; flex-wrap:wrap; gap:3px; width:80px; justify-content:center; min-height:24px; }
+.gem { width:18px; height:18px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:11px; animation:gemPop .3s ease; }
+@keyframes gemPop { from{transform:scale(0)} to{transform:scale(1)} }
+.gem-trust { background:rgba(76,175,80,.2); border:1px solid rgba(76,175,80,.5); }
+.gem-lie { background:rgba(200,60,60,.2); border:1px solid rgba(200,60,60,.45); }
+.sp-vs { font-size:18px; opacity:.5; }
+.sp-status { text-align:center; font-size:11px; color:var(--tg); font-style:italic; margin-top:8px; }
+
+/* ══════════════════════════════
+   СЧЁТ (SCORES)
+══════════════════════════════ */
+.sc-header { width:100%; padding:14px 20px 12px; background:rgba(5,10,22,.75); border-bottom:1px solid rgba(201,146,42,.16); text-align:center; flex-shrink:0; }
+.sc-title { font-size:13px; color:var(--gold-b); letter-spacing:3px; text-transform:uppercase; }
+.sc-sub { font-size:10px; color:var(--dim); margin-top:2px; letter-spacing:1px; }
+
+.score-row { width:100%; padding:12px 14px; display:flex; align-items:flex-start; gap:10px; border-radius:12px; position:relative; overflow:hidden; }
+.sr-1 { background:rgba(201,146,42,.08); border:1px solid rgba(201,146,42,.26); }
+.sr-n { background:rgba(20,34,62,.6); border:1px solid rgba(201,146,42,.1); }
+.sr-rank { font-size:16px; width:24px; flex-shrink:0; text-align:center; padding-top:2px; }
+.sr-ava { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; border:1.5px solid rgba(201,146,42,.28); flex-shrink:0; }
+.sr-info { flex:1; }
+.sr-name { font-size:13px; color:var(--tg); }
+.sr-title-txt { font-size:10px; color:var(--dim); font-style:italic; margin-top:1px; }
+/* PAPYRUS scrolls */
+.sr-scrolls { display:flex; flex-wrap:wrap; gap:3px; margin-top:6px; }
+.scroll-icon { font-size:14px; transition:transform .3s; }
+.scroll-icon.new { animation:unroll .5s ease; }
+@keyframes unroll { from{transform:scaleX(0);opacity:0} to{transform:scaleX(1);opacity:1} }
+.sr-pts-wrap { display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
+.sr-pts { font-size:20px; color:var(--gold-b); font-weight:bold; text-shadow:0 0 8px rgba(245,208,112,.35); }
+.sr-pts-delta { font-size:10px; color:#81c784; animation:fadeUp .5s ease; }
+@keyframes fadeUp { from{transform:translateY(6px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+.throne-hint { width:100%; padding:11px 16px; background:rgba(201,146,42,.05); border:1px solid rgba(201,146,42,.14); border-radius:10px; text-align:center; }
+.th-main { font-size:12px; color:var(--tg); line-height:1.6; }
+.th-steps { font-size:18px; color:var(--gold-b); font-weight:bold; }
+
+/* ── ROUND BUTTON ── */
+.next-round-btn { width:100%; padding:13px; background:linear-gradient(135deg,#6a3a08,#b07820,#6a3a08); border:1px solid #c9922a; border-radius:12px; color:var(--wh); font-size:12px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; cursor:pointer; box-shadow:0 3px 14px rgba(201,146,42,.24); transition:all .2s; }
+.next-round-btn:hover { transform:translateY(-1px); }
+
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- TOP TABS -->
+  <div class="tabs" id="main-tabs">
+    <div class="tab active" onclick="showMain('lobby')">Храм</div>
+    <div class="tab" onclick="showMain('game')">Суд</div>
+    <div class="tab" onclick="showMain('scores')">Счёт</div>
+  </div>
+
+  <!-- ══ ХРАМ ══ -->
+  <div class="screen" id="s-lobby">
+    <div class="bg"></div>
+    <div class="stars-layer" id="st0"></div>
+    <div class="moon"></div>
+    <div class="pyrs" style="bottom:0">
+      <div class="pyr pb"></div><div class="pyr pm"></div><div class="pyr ps"></div>
+    </div>
+    <div class="sand-g"></div>
+
+    <div style="height:46px;flex-shrink:0"></div>
+
+    <div class="scroll">
+      <div class="inner" style="padding-top:12px">
+
+        <div class="lobby-hero">
+          <div class="lh-icon">𓂀</div>
+          <div class="lh-title">ХРАМ</div>
+          <div class="lh-sub">Суд Осириса</div>
+        </div>
+
+        <div class="card" style="width:100%;padding:14px 16px">
+          <div class="room-code-block">
+            <div class="rc-label">𓇽 Код Храма</div>
+            <div class="rc-val">ANKH · 42</div>
+            <div class="rc-hint">Поделитесь кодом с жрецами</div>
+          </div>
+          <div class="divider"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="lbl">𓆣 Жрецы в зале</div>
+            <div class="ps-count">3 / 8</div>
+          </div>
+
+          <div class="player-row new">
+            <div class="pr-ava" style="background:rgba(201,146,42,.16)">𓀀</div>
+            <div class="pr-info">
+              <div class="pr-name">@ivan</div>
+              <div class="pr-title">Наместник Осириса</div>
+            </div>
+            <div class="pr-dot on"></div>
+          </div>
+          <div class="player-row new" style="animation-delay:.15s">
+            <div class="pr-ava" style="background:rgba(42,80,122,.3)">𓀁</div>
+            <div class="pr-info">
+              <div class="pr-name">@anna</div>
+              <div class="pr-title">Прекраснейшая как Нефертити</div>
+            </div>
+            <div class="pr-dot on"></div>
+          </div>
+          <div class="player-row new" style="animation-delay:.3s">
+            <div class="pr-ava" style="background:rgba(80,42,122,.3)">𓀂</div>
+            <div class="pr-info">
+              <div class="pr-name">@bob</div>
+              <div class="pr-title">Облезлый Сфинкс</div>
+            </div>
+            <div class="pr-dot wait"></div>
+          </div>
+        </div>
+
+        <div class="lobby-hint">
+          𓆓 Пригласите жрецов, чтобы начать суд.<br>
+          Когда все войдут в Храм — огонь Ра зажжётся.
+        </div>
+
+        <button class="btn-gold" onclick="showMain('game')">𓂀 Начать Суд</button>
+        <button class="btn-ghost">𓋸 Пригласить жрецов</button>
+        <div style="height:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ СУД (GAME) ══ -->
+  <div class="screen hidden" id="s-game">
+    <div class="bg"></div>
+    <div class="stars-layer" id="st1"></div>
+    <div class="moon"></div>
+    <div class="pyrs" style="bottom:0;opacity:.22">
+      <div class="pyr pb"></div><div class="pyr pm"></div>
+    </div>
+    <div class="sand-g" style="opacity:.2"></div>
+
+    <div style="height:46px;flex-shrink:0"></div>
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+      <div class="tb-left">
+        <div class="tb-round">Раунд 3 · Ход жреца</div>
+        <div class="tb-who">@ivan · Наместник Осириса</div>
+      </div>
+      <!-- HOURGLASS -->
+      <div class="hg-wrap">
+        <div class="hourglass">
+          <svg class="hg-svg" viewBox="0 0 28 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- frame -->
+            <rect x="3" y="1" width="22" height="3" rx="1.5" fill="#c9922a" opacity=".8"/>
+            <rect x="3" y="34" width="22" height="3" rx="1.5" fill="#c9922a" opacity=".8"/>
+            <line x1="4.5" y1="3.5" x2="14" y2="19" stroke="#c9922a" stroke-width="1.2" opacity=".6"/>
+            <line x1="23.5" y1="3.5" x2="14" y2="19" stroke="#c9922a" stroke-width="1.2" opacity=".6"/>
+            <line x1="4.5" y1="34.5" x2="14" y2="19" stroke="#c9922a" stroke-width="1.2" opacity=".6"/>
+            <line x1="23.5" y1="34.5" x2="14" y2="19" stroke="#c9922a" stroke-width="1.2" opacity=".6"/>
+            <!-- sand top (draining) -->
+            <polygon class="hg-sand-top" points="7,4 21,4 14,18" fill="#e8b84b" opacity=".75"/>
+            <!-- sand bottom (filling) -->
+            <polygon class="hg-sand-bot" points="6,34 22,34 14,22" fill="#e8b84b" opacity=".55"/>
+            <!-- trickle -->
+            <circle cx="14" cy="19.5" r="1" fill="#f5d070" opacity=".9">
+              <animate attributeName="opacity" values="0;1;0" dur="0.6s" repeatCount="indefinite"/>
+              <animate attributeName="cy" values="18;21;18" dur="0.6s" repeatCount="indefinite"/>
+            </circle>
+          </svg>
+        </div>
+        <div class="hg-num">42с</div>
+      </div>
+    </div>
+
+    <!-- ROLE TABS -->
+    <div class="role-tabs">
+      <div class="rtab active" id="rt-active" onclick="setRole('active')">🪶 Мой вопрос</div>
+      <div class="rtab" id="rt-witness" onclick="setRole('witness')">👁 Свидетели</div>
+    </div>
+
+    <!-- GAME SCROLL -->
+    <div class="scroll" id="game-scroll">
+      <div class="inner" style="padding-top:12px" id="game-inner">
+        <!-- content injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ СЧЁТ ══ -->
+  <div class="screen hidden" id="s-scores">
+    <div class="bg"></div>
+    <div class="stars-layer" id="st2"></div>
+    <div class="moon"></div>
+    <div class="pyrs" style="bottom:0;opacity:.18">
+      <div class="pyr pb"></div><div class="pyr pm"></div><div class="pyr ps"></div>
+    </div>
+    <div class="sand-g" style="opacity:.15"></div>
+
+    <div style="height:46px;flex-shrink:0"></div>
+
+    <div class="sc-header">
+      <div class="sc-title">𓆣 Свиток Осириса</div>
+      <div class="sc-sub">До трона: 50 очков · Раунд 3</div>
+    </div>
+
+    <div class="scroll">
+      <div class="inner" style="padding-top:14px">
+
+        <div class="card score-row sr-1" style="width:100%">
+          <div class="sr-rank">👑</div>
+          <div class="sr-ava" style="background:rgba(201,146,42,.18)">𓀀</div>
+          <div class="sr-info">
+            <div class="sr-name">@ivan</div>
+            <div class="sr-title-txt">Наместник Осириса</div>
+            <div class="sr-scrolls">
+              <span class="scroll-icon">📜</span><span class="scroll-icon">📜</span><span class="scroll-icon">📜</span>
+              <span class="scroll-icon new">📜</span>
+              <span style="font-size:10px;color:var(--dim);align-self:center;margin-left:3px">+8</span>
+            </div>
+          </div>
+          <div class="sr-pts-wrap">
+            <div class="sr-pts">38</div>
+            <div class="sr-pts-delta">+3 🪶</div>
+          </div>
+        </div>
+
+        <div class="card score-row sr-n" style="width:100%">
+          <div class="sr-rank" style="color:#aaa;font-size:13px">2</div>
+          <div class="sr-ava" style="background:rgba(42,80,122,.28)">𓀁</div>
+          <div class="sr-info">
+            <div class="sr-name" style="color:#b8c8dc">@anna</div>
+            <div class="sr-title-txt">Прекраснейшая как Нефертити</div>
+            <div class="sr-scrolls">
+              <span class="scroll-icon">📜</span><span class="scroll-icon">📜</span>
+              <span style="font-size:10px;color:var(--dim);align-self:center;margin-left:3px">+9</span>
+            </div>
+          </div>
+          <div class="sr-pts-wrap">
+            <div class="sr-pts" style="font-size:17px;color:#8a9bb5">29</div>
+          </div>
+        </div>
+
+        <div class="card score-row sr-n" style="width:100%">
+          <div class="sr-rank" style="color:#888;font-size:13px">3</div>
+          <div class="sr-ava" style="background:rgba(80,42,122,.28)">𓀂</div>
+          <div class="sr-info">
+            <div class="sr-name" style="color:#9888bc">@bob</div>
+            <div class="sr-title-txt">Облезлый Сфинкс</div>
+            <div class="sr-scrolls">
+              <span class="scroll-icon">📜</span>
+              <span style="font-size:10px;color:var(--dim);align-self:center;margin-left:3px">+7</span>
+            </div>
+          </div>
+          <div class="sr-pts-wrap">
+            <div class="sr-pts" style="font-size:17px;color:#7060a0">17</div>
+          </div>
+        </div>
+
+        <div class="throne-hint">
+          <div class="th-main">
+            До трона фараона —<br>
+            <span class="th-steps">12</span> шагов по пескам истины
+          </div>
+        </div>
+
+        <button class="next-round-btn" onclick="showMain('game')">𓂀 Следующий жрец идёт на суд</button>
+        <div style="height:10px"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ── STARS ── */
+function genStars(id, n) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random() * 2.3 + 0.5;
+    s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*54}%;left:${Math.random()*100}%;--td:${2+Math.random()*2.5}s;--delay:${Math.random()*3}s;`;
+    c.appendChild(s);
+  }
+}
+genStars('st0',40); genStars('st1',34); genStars('st2',30);
+
+/* ── MAIN TABS ── */
+function showMain(name) {
+  ['lobby','game','scores'].forEach(n => {
+    document.getElementById('s-'+n).classList.toggle('hidden', n!==name);
+  });
+  const names = ['lobby','game','scores'];
+  document.querySelectorAll('#main-tabs .tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
+  if (name === 'game') renderGame();
+}
+
+/* ── GAME STATE ── */
+// phase: 'asking' → active player answering
+//        'voting' → all voting
+let gamePhase = 'asking';
+let currentRole = 'active'; // 'active' or 'witness'
+
+function setRole(r) {
+  currentRole = r;
+  document.getElementById('rt-active').classList.toggle('active', r==='active');
+  document.getElementById('rt-witness').classList.toggle('active', r==='witness');
+  renderGame();
+}
+
+function renderGame() {
+  const inner = document.getElementById('game-inner');
+  inner.innerHTML = '';
+
+  if (gamePhase === 'asking') {
+    if (currentRole === 'active') renderActiveAsking(inner);
+    else renderWitnessAsking(inner);
+  } else {
+    if (currentRole === 'active') renderActiveVoting(inner);
+    else renderWitnessVoting(inner);
+  }
+}
+
+function renderActiveAsking(el) {
+  el.innerHTML = `
+    <div class="q-badge"><span style="font-size:14px">🪶</span> Папирус Маат · Личный вопрос</div>
+    <div class="card q-card" style="width:100%">
+      <div class="q-deco">𓂀 𓆣 𓂀</div>
+      <div class="q-text">«Сердце твоё трепещет…<br>Признайся: что ты сделал<br>и о чём стыдишься?»</div>
+    </div>
+    <div class="input-fake" style="width:100%">
+      <span style="flex:1;opacity:.5;font-style:italic">Напиши ответ жрецам…</span>
+      <span style="opacity:.4;font-size:16px">𓂋</span>
+    </div>
+    <button class="voice-btn" onclick="answerGiven()">🗣️ Я ответил вслух</button>
+    <div style="font-size:10px;color:var(--dim);text-align:center;font-style:italic;line-height:1.6;padding:8px 12px;background:rgba(201,146,42,.04);border:1px solid rgba(201,146,42,.1);border-radius:10px;width:100%">
+      𓆓 Боги слышат каждое слово.<br>Жрецы будут судить твоё сердце.
+    </div>
+    <div style="height:8px"></div>
+  `;
+}
+
+function renderWitnessAsking(el) {
+  el.innerHTML = `
+    <div class="card witness-card" style="width:100%">
+      <div class="wc-eye">𓂀</div>
+      <div class="wc-text">
+        «Взвешиваем сердце —<br>лживо оно или нет,<br>предстоит узнать!»
+      </div>
+    </div>
+    <div class="card" style="width:100%;padding:14px 16px">
+      <div class="lbl" style="margin-bottom:6px">𓆣 Вопрос жреца</div>
+      <div style="font-size:13px;color:var(--tg);font-style:italic;line-height:1.7">«Сердце твоё трепещет… Признайся: что ты сделал и о чём стыдишься?»</div>
+    </div>
+    <div style="font-size:11px;color:var(--dim);text-align:center;font-style:italic;line-height:1.6;padding:10px 14px;background:rgba(14,22,44,.5);border:1px solid rgba(201,146,42,.1);border-radius:10px;width:100%">
+      ⏳ @ivan отвечает…<br>Глаз Гора наблюдает.
+    </div>
+    <div style="height:8px"></div>
+  `;
+}
+
+function renderActiveVoting(el) {
+  el.innerHTML = `
+    <div class="card answer-reveal" style="width:100%">
+      <div class="ar-lbl">𓂋 Ваш ответ</div>
+      <div class="ar-text">«Однажды я взял у друга денег в долг и намеренно "забыл" об этом на полгода…»</div>
+    </div>
+    <div class="card scales-prog" style="width:100%">
+      <div class="sp-lbl">Жрецы выносят вердикт…</div>
+      <div class="sp-visual">
+        <div class="sp-side">
+          <div class="sp-side-lbl">🪶 Чисто</div>
+          <div class="sp-gems" id="gems-trust">
+            <div class="gem gem-trust">🪶</div>
+          </div>
+        </div>
+        <div class="sp-vs">⚖️</div>
+        <div class="sp-side">
+          <div class="sp-side-lbl">👁 Ложь</div>
+          <div class="sp-gems" id="gems-lie"></div>
+        </div>
+      </div>
+      <div class="sp-status">1 из 2 проголосовали · ожидаем…</div>
+    </div>
+    <div style="font-size:11px;color:var(--dim);text-align:center;font-style:italic;line-height:1.6;padding:10px 14px;background:rgba(14,22,44,.5);border:1px solid rgba(201,146,42,.1);border-radius:10px;width:100%">
+      𓆓 Весы Маат в движении.<br>Боги слышат голоса жрецов.
+    </div>
+    <div style="height:8px"></div>
+  `;
+}
+
+function renderWitnessVoting(el) {
+  el.innerHTML = `
+    <div class="card answer-reveal" style="width:100%">
+      <div class="ar-lbl">𓀀 @ivan говорит</div>
+      <div class="ar-text">«Однажды я взял у друга денег в долг и намеренно "забыл" об этом на полгода…»</div>
+    </div>
+
+    <div class="v-scales-wrap">
+      <svg class="scales-svg" viewBox="0 0 140 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- pole -->
+        <line x1="70" y1="10" x2="70" y2="70" stroke="#c9922a" stroke-width="2" opacity=".7"/>
+        <circle cx="70" cy="10" r="5" fill="#e8b84b" opacity=".8"/>
+        <!-- beam -->
+        <g class="beam">
+          <line x1="20" y1="12" x2="120" y2="12" stroke="#c9922a" stroke-width="2.5" opacity=".85"/>
+          <!-- chains left -->
+          <line x1="24" y1="12" x2="24" y2="52" stroke="#c9922a" stroke-width="1.2" opacity=".6" class="pan-l"/>
+          <line x1="30" y1="12" x2="30" y2="52" stroke="#c9922a" stroke-width="1.2" opacity=".6" class="pan-l"/>
+          <!-- pan left -->
+          <g class="pan-l">
+            <path d="M14 54 Q27 60 40 54" stroke="#c9922a" stroke-width="2" fill="none" opacity=".8"/>
+            <text x="27" y="52" text-anchor="middle" font-size="14">🪶</text>
+          </g>
+          <!-- chains right -->
+          <line x1="110" y1="12" x2="110" y2="52" stroke="#c9922a" stroke-width="1.2" opacity=".6" class="pan-r"/>
+          <line x1="116" y1="12" x2="116" y2="52" stroke="#c9922a" stroke-width="1.2" opacity=".6" class="pan-r"/>
+          <!-- pan right -->
+          <g class="pan-r">
+            <path d="M100 54 Q113 60 126 54" stroke="#c9922a" stroke-width="2" fill="none" opacity=".8"/>
+            <text x="113" y="52" text-anchor="middle" font-size="14">❤️</text>
+          </g>
+        </g>
+        <!-- base -->
+        <path d="M55 72 L85 72 L80 80 L60 80 Z" fill="#c9922a" opacity=".55"/>
+      </svg>
+      <div class="scales-lbl">Весы Маат ждут вашего вердикта</div>
+    </div>
+
+    <div class="vbtns" style="width:100%">
+      <button class="vbtn vtrust" onclick="voteAndShow('trust')">
+        <span class="vbtn-icon">🪶</span>
+        <span class="vbtn-name">Перо Маат</span>
+        <span class="vbtn-sub">Сердце чисто</span>
+      </button>
+      <button class="vbtn vlie" onclick="voteAndShow('lie')">
+        <span class="vbtn-icon">👁️</span>
+        <span class="vbtn-name">Гнев Аммит</span>
+        <span class="vbtn-sub">Сердце лжёт</span>
+      </button>
+    </div>
+
+    <div class="card scales-prog" style="width:100%">
+      <div class="sp-lbl">Голоса жрецов</div>
+      <div class="sp-visual">
+        <div class="sp-side">
+          <div class="sp-side-lbl">🪶 Чисто</div>
+          <div class="sp-gems"><div class="gem gem-trust">🪶</div></div>
+        </div>
+        <div class="sp-vs">⚖️</div>
+        <div class="sp-side">
+          <div class="sp-side-lbl">👁 Ложь</div>
+          <div class="sp-gems"></div>
+        </div>
+      </div>
+      <div class="sp-status">1 из 2 проголосовали · ожидаем…</div>
+    </div>
+    <div style="height:8px"></div>
+  `;
+}
+
+function answerGiven() {
+  gamePhase = 'voting';
+  renderGame();
+}
+
+function voteAndShow(v) {
+  gamePhase = 'voting';
+  currentRole = 'active';
+  document.getElementById('rt-active').classList.add('active');
+  document.getElementById('rt-witness').classList.remove('active');
+  renderGame();
+  // add gem animation
+  setTimeout(() => {
+    const g = document.createElement('div');
+    g.className = 'gem ' + (v==='trust' ? 'gem-trust' : 'gem-lie');
+    g.textContent = v==='trust' ? '🪶' : '👁';
+    const t = document.getElementById(v==='trust' ? 'gems-trust' : 'gems-lie');
+    if (t) t.appendChild(g);
+    setTimeout(() => showMain('scores'), 600);
+  }, 200);
+}
+
+/* initial render */
+renderGame();
+</script>
+</body>
+</html>
