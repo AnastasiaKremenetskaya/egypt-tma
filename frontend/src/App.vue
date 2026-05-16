@@ -19,7 +19,11 @@ const { connect } = useWebSocket((newState) => {
 
 function onJoined() {
   if (state.room?.code) {
-    connect(state.room.code, initData)
+    try {
+      connect(state.room.code, initData)
+    } catch {
+      // WebSocket недоступен (не в Telegram или нет сервера) — игнорируем
+    }
   }
 }
 

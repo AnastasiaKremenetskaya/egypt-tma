@@ -52,7 +52,9 @@ func (b *Bot) SetHub(h *api.Hub) { b.hub = h }
 
 // persist saves the room and broadcasts its state to Mini App WebSocket clients.
 func (b *Bot) persist(room *game.Room) {
-	b.persist(room)
+	if err := b.store.Save(room); err != nil {
+		b.log.Printf("persist room %s: %v", room.Code, err)
+	}
 	b.notifyHub(room)
 }
 

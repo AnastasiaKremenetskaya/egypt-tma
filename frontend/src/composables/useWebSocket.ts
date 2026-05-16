@@ -1,5 +1,6 @@
 import { ref, onUnmounted } from 'vue'
 import type { WSMessage, RoomState } from '../types/game'
+import { API_BASE } from './useGame'
 
 export function useWebSocket(onState: (state: RoomState) => void) {
   const connected = ref(false)
@@ -25,9 +26,11 @@ export function useWebSocket(onState: (state: RoomState) => void) {
   function _open() {
     if (destroyed) return
 
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
     const encoded = encodeURIComponent(initData)
-    const url = `${proto}://${location.host}/ws/room/${roomCode}?init_data=${encoded}`
+    const base = API_BASE
+      ? API_BASE.replace(/^http/, 'ws')
+      : (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host
+    const url = `${base}/ws/room/${roomCode}?init_data=${encoded}`
 
     ws = new WebSocket(url)
 

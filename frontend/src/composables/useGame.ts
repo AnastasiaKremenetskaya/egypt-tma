@@ -2,6 +2,8 @@ import { reactive, computed } from 'vue'
 import type { RoomState, PlayerView } from '../types/game'
 import { useTelegram } from './useTelegram'
 
+export const API_BASE = import.meta.env.VITE_API_URL ?? ''
+
 const { initData, userId, username } = useTelegram()
 
 const state = reactive<{
@@ -39,7 +41,7 @@ const headers = () => ({
 })
 
 async function apiPost<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     method: 'POST',
     headers: headers(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -50,7 +52,7 @@ async function apiPost<T>(path: string, body?: unknown): Promise<T> {
 }
 
 async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(path, { headers: headers() })
+  const res = await fetch(API_BASE + path, { headers: headers() })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'Ошибка сервера')
   return data as T
