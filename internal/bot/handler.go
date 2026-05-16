@@ -79,6 +79,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message, userID int64, username string
 		b.cmdNewRoom(msg, userID, username)
 	case "join", "войти":
 		b.cmdJoin(msg, userID, username)
+	case "старт":
+		b.cmdStartGame(msg, userID)
 	case "rooms":
 		b.cmdRooms(msg, userID)
 	default:
@@ -145,6 +147,35 @@ func (b *Bot) joinRoom(chatID int64, code string, userID int64, username string)
 	}
 
 	b.notifyLobby(room)
+}
+
+func (b *Bot) cmdStartGame(msg *tgbotapi.Message, userID int64) {
+	room, err := b.store.FindByPlayer(userID)
+	if err != nil {
+		b.sendText(msg.Chat.ID, "Вы не состоите ни в одной комнате. /new — создать, /join КОД — войти.")
+		return
+	}
+	if room.Phase != game.PhaseLobby {
+		b.sendText(msg.Chat.ID, "Игра уже идёт.")
+		return
+	}
+	if len(room.Players) < 2 {
+		b.sendText(msg.Chat.ID, "Нужно хотя бы 2 игрока.")
+		return
+	}
+
+	room.Round = 0
+	room.ActiveIdx = 0
+	if err := room.Transition(game.PhaseQuestion); err != nil {
+		b.log.Printf("transition: %v", err)
+		return
+	}
+	if err := b.store.Save(room); err != nil {
+		b.log.Printf("save room: %v", err)
+	}
+
+	b.broadcast(room, "⚖️ <b>Суд начинается!</b>")
+	b.startQuestion(room)
 }
 
 func (b *Bot) cmdRooms(msg *tgbotapi.Message, userID int64) {

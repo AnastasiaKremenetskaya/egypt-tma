@@ -72,7 +72,7 @@ func (b *Bot) notifyLobby(room *game.Room) {
 	}
 }
 
-// notifyQuestion sends the drawn card to all players. Active player gets answer buttons.
+// notifyQuestion sends the drawn card to the active player and a spectator notice to others.
 func (b *Bot) notifyQuestion(room *game.Room) {
 	q := room.CurrentQuestion
 	if q == nil {
@@ -83,31 +83,34 @@ func (b *Bot) notifyQuestion(room *game.Room) {
 		return
 	}
 
-	header := fmt.Sprintf("🎴 <b>Ход %d · %s «%s»</b>\n\n", room.Round+1, active.Username, active.Title)
-
-	var cardEmoji, cardLabel string
+	// Active player: card title matches type
+	var cardTitle string
 	if q.Type == "maat" {
-		cardEmoji = "🪶"
-		cardLabel = "Карта МААТ (личный вопрос)"
+		cardTitle = "🕊️ <b>Папирус Маат</b>"
 	} else {
-		cardEmoji = "🌪"
-		cardLabel = "Карта СЕТ (интеллектуальный)"
+		cardTitle = "⚡ <b>Карта Сета</b>"
 	}
-
-	questionText := header + fmt.Sprintf("%s <b>%s</b>\n\n%s", cardEmoji, cardLabel, q.Text)
-
-	// active player: answer buttons
+	activeText := fmt.Sprintf(
+		"%s\n«%s»\n\n💬 Если хочешь ответить текстом — просто напиши.\n🗣️ Если ответил вслух — нажми кнопку ниже.\n⏱️ У тебя 60 секунд.",
+		cardTitle, q.Text,
+	)
 	activeMarkup := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🗣 Ответил вслух", transport.VoiceData(room.Code)),
+			tgbotapi.NewInlineKeyboardButtonData("🗣️ Я ответил вслух", transport.VoiceData(room.Code)),
 		),
+	)
+
+	// Spectators: only see that the active player received a question
+	spectatorText := fmt.Sprintf(
+		"👁️ <b>Глаз Гора наблюдает</b>\nИгрок @%s получил вопрос:\n«%s»\nЖди его ответа…",
+		active.Username, q.Text,
 	)
 
 	for _, p := range room.Players {
 		if p.UserID == active.UserID {
-			b.sendMarkup(p.UserID, questionText+"\n\n<i>Напиши ответ или нажми «Ответил вслух». 60 секунд.</i>", activeMarkup)
+			b.sendMarkup(p.UserID, activeText, activeMarkup)
 		} else {
-			b.sendText(p.UserID, questionText+"\n\n<i>Ждём ответа...</i>")
+			b.sendText(p.UserID, spectatorText)
 		}
 	}
 }
