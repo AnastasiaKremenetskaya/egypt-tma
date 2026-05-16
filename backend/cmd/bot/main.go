@@ -2,12 +2,14 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
 
 	"github.com/anterekhova/egypt-tma/config"
+	"github.com/anterekhova/egypt-tma/internal/api"
 	"github.com/anterekhova/egypt-tma/internal/bot"
 	"github.com/anterekhova/egypt-tma/internal/questions"
 	"github.com/anterekhova/egypt-tma/internal/store"
@@ -26,20 +28,32 @@ func main() {
 	}
 	logger.Printf("loaded %d maat / %d seth questions", len(bank.Maat), len(bank.Seth))
 
-	api, err := tgbotapi.NewBotAPI(cfg.BotToken)
+	tgAPI, err := tgbotapi.NewBotAPI(cfg.BotToken)
 	if err != nil {
 		logger.Fatalf("bot api: %v", err)
 	}
-	api.Debug = cfg.Debug
-	logger.Printf("authorised as @%s", api.Self.UserName)
+	tgAPI.Debug = cfg.Debug
+	logger.Printf("authorised as @%s", tgAPI.Self.UserName)
 
 	st := store.NewMemoryStore()
-	b := bot.New(api, st, bank, logger)
+	b := bot.New(tgAPI, st, bank, logger)
+
+	hub := api.NewHub(logger)
+	b.SetHub(hub)
+
+	apiServer := api.NewServer(b, hub, cfg.BotToken, cfg.WebAppURL, logger)
+
+	go func() {
+		logger.Printf("HTTP API listening on %s", cfg.HTTPAddr)
+		if err := http.ListenAndServe(cfg.HTTPAddr, apiServer.Handler()); err != nil {
+			logger.Fatalf("http server: %v", err)
+		}
+	}()
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	updates := api.GetUpdatesChan(u)
+	updates := tgAPI.GetUpdatesChan(u)
 	logger.Println("polling for updates...")
 
 	for update := range updates {

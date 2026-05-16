@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -10,6 +11,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
+	"github.com/anterekhova/egypt-tma/internal/api"
 	"github.com/anterekhova/egypt-tma/internal/game"
 	"github.com/anterekhova/egypt-tma/internal/questions"
 	"github.com/anterekhova/egypt-tma/internal/store"
@@ -28,21 +30,56 @@ type Bot struct {
 	bank  *questions.Bank
 	log   *log.Logger
 	ctx   context.Context
+	hub   *api.Hub
 
 	// sethAnswers tracks who answered the Seth question in a given round
 	// map[roomCode]map[userID]bool
 	sethAnswers map[string]map[int64]bool
 }
 
-func New(api *tgbotapi.BotAPI, st store.Store, bank *questions.Bank, logger *log.Logger) *Bot {
+func New(tgAPI *tgbotapi.BotAPI, st store.Store, bank *questions.Bank, logger *log.Logger) *Bot {
 	return &Bot{
-		api:         api,
+		api:         tgAPI,
 		store:       st,
 		bank:        bank,
 		log:         logger,
 		ctx:         context.Background(),
 		sethAnswers: make(map[string]map[int64]bool),
 	}
+}
+
+func (b *Bot) SetHub(h *api.Hub) { b.hub = h }
+
+// persist saves the room and broadcasts its state to Mini App WebSocket clients.
+func (b *Bot) persist(room *game.Room) {
+	b.persist(room)
+	b.notifyHub(room)
+}
+
+// notifyHub broadcasts the current room state to all connected Mini App clients.
+func (b *Bot) notifyHub(room *game.Room) {
+	if b.hub == nil {
+		return
+	}
+	ids := make([]int64, 0, len(b.sethAnswers[room.Code]))
+	for id := range b.sethAnswers[room.Code] {
+		ids = append(ids, id)
+	}
+	b.hub.BroadcastRoom(room, ids)
+}
+
+// currentState returns the current sanitised RoomState for a room code.
+func (b *Bot) currentState(code string) (*api.RoomState, error) {
+	room, err := b.store.Get(code)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(b.sethAnswers[code]))
+	for id := range b.sethAnswers[code] {
+		ids = append(ids, id)
+	}
+	s := api.RoomStateFrom(room, ids)
+	return &s, nil
 }
 
 // HandleUpdate routes incoming Telegram updates.
@@ -142,9 +179,7 @@ func (b *Bot) joinRoom(chatID int64, code string, userID int64, username string)
 		b.sendText(chatID, "Вы уже в этой комнате.")
 		return
 	}
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 
 	b.notifyLobby(room)
 }
@@ -170,9 +205,7 @@ func (b *Bot) cmdStartGame(msg *tgbotapi.Message, userID int64) {
 		b.log.Printf("transition: %v", err)
 		return
 	}
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 
 	b.broadcast(room, "⚖️ <b>Суд начинается!</b>")
 	b.startQuestion(room)
@@ -202,9 +235,7 @@ func (b *Bot) handleTextAnswer(msg *tgbotapi.Message, userID int64) {
 	}
 
 	room.CurrentAnswer = &game.AnswerRecord{Type: "text", Text: msg.Text}
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 
 	b.startVoting(room)
 }
@@ -264,9 +295,7 @@ func (b *Bot) cbStartGame(room *game.Room, userID int64) {
 		b.log.Printf("transition: %v", err)
 		return
 	}
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 
 	b.broadcast(room, "⚖️ <b>Суд начинается!</b>")
 	b.startQuestion(room)
@@ -282,9 +311,7 @@ func (b *Bot) cbVoiceAnswer(room *game.Room, userID int64) {
 	}
 
 	room.CurrentAnswer = &game.AnswerRecord{Type: "voice"}
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 	b.startVoting(room)
 }
 
@@ -300,9 +327,7 @@ func (b *Bot) cbVote(room *game.Room, userID int64, trust bool) {
 	if !room.AddVote(userID, trust) {
 		return // already voted
 	}
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 
 	if room.AllVoted() {
 		b.resolveVoting(room)
@@ -328,9 +353,7 @@ func (b *Bot) cbSethAnswer(room *game.Room, userID int64, optIdx int) {
 
 	correct := optIdx == q.CorrectOptIdx
 	b.sethAnswers[room.Code][userID] = correct
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 
 	// check if all answered
 	if len(b.sethAnswers[room.Code]) >= len(room.Players) {
@@ -343,9 +366,7 @@ func (b *Bot) cbSethAnswer(room *game.Room, userID int64, optIdx int) {
 func (b *Bot) startQuestion(room *game.Room) {
 	room.DrawCard(b.bank)
 	room.PhaseDeadline = time.Now().Add(questionDuration)
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 
 	b.notifyQuestion(room)
 
@@ -371,9 +392,7 @@ func (b *Bot) startVoting(room *game.Room) {
 		return
 	}
 	room.PhaseDeadline = time.Now().Add(votingDuration)
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 
 	b.notifyVoting(room)
 
@@ -420,9 +439,7 @@ func (b *Bot) startSeth(room *game.Room) {
 	room.DrawSethCard(b.bank)
 	room.PhaseDeadline = time.Now().Add(sethDuration)
 	delete(b.sethAnswers, room.Code)
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 
 	b.notifySeth(room)
 
@@ -483,9 +500,7 @@ func (b *Bot) advanceNextTurn(room *game.Room) {
 		b.log.Printf("transition to question: %v", err)
 		return
 	}
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 	b.notifyScoreboard(room)
 	b.startQuestion(room)
 }
@@ -493,10 +508,154 @@ func (b *Bot) advanceNextTurn(room *game.Room) {
 func (b *Bot) endGame(room *game.Room, winner *game.Player) {
 	room.StopTimer()
 	_ = room.Transition(game.PhaseFinished)
-	if err := b.store.Save(room); err != nil {
-		b.log.Printf("save room: %v", err)
-	}
+	b.persist(room)
 	b.notifyWinner(room, winner)
+}
+
+// ─── Public API actions (called by HTTP API server) ───────────────────────────
+
+func (b *Bot) APIGetRoom(code string) (*api.RoomState, error) {
+	return b.currentState(code)
+}
+
+func (b *Bot) APICreateRoom(userID int64, username string) (*api.RoomState, error) {
+	if existing, err := b.store.FindByPlayer(userID); err == nil {
+		s := api.RoomStateFrom(existing, nil)
+		return &s, nil
+	}
+	code := generateCode()
+	room := game.NewRoom(code, userID, username)
+	if err := b.store.Create(room); err != nil {
+		return nil, fmt.Errorf("create room: %w", err)
+	}
+	b.notifyHub(room)
+	return b.currentState(code)
+}
+
+func (b *Bot) APIJoinRoom(code string, userID int64, username string) (*api.RoomState, error) {
+	room, err := b.store.Get(code)
+	if err != nil {
+		return nil, errors.New("комната не найдена")
+	}
+	if room.Phase != game.PhaseLobby {
+		return nil, errors.New("игра уже идёт")
+	}
+	room.AddPlayer(userID, username) // returns false if already in, that's fine
+	b.persist(room)
+	b.notifyLobby(room)
+	return b.currentState(code)
+}
+
+func (b *Bot) APIStartGame(code string, userID int64) (*api.RoomState, error) {
+	room, err := b.store.Get(code)
+	if err != nil {
+		return nil, errors.New("комната не найдена")
+	}
+	if room.AdminID != userID {
+		return nil, errors.New("только организатор может начать игру")
+	}
+	if room.Phase != game.PhaseLobby {
+		return nil, errors.New("игра уже идёт")
+	}
+	if len(room.Players) < 2 {
+		return nil, errors.New("нужно минимум 2 игрока")
+	}
+	room.Round = 0
+	room.ActiveIdx = 0
+	if err := room.Transition(game.PhaseQuestion); err != nil {
+		return nil, err
+	}
+	b.persist(room)
+	b.broadcast(room, "⚖️ <b>Суд начинается!</b>")
+	b.startQuestion(room)
+	return b.currentState(code)
+}
+
+func (b *Bot) APIAnswer(code string, userID int64, text string) (*api.RoomState, error) {
+	room, err := b.store.Get(code)
+	if err != nil {
+		return nil, errors.New("комната не найдена")
+	}
+	if room.Phase != game.PhaseQuestion {
+		return nil, errors.New("сейчас не фаза вопроса")
+	}
+	active := room.ActivePlayer()
+	if active == nil || active.UserID != userID {
+		return nil, errors.New("не твой ход")
+	}
+	if text == "" {
+		return nil, errors.New("ответ не может быть пустым")
+	}
+	room.CurrentAnswer = &game.AnswerRecord{Type: "text", Text: text}
+	b.persist(room)
+	b.startVoting(room)
+	return b.currentState(code)
+}
+
+func (b *Bot) APIVoice(code string, userID int64) (*api.RoomState, error) {
+	room, err := b.store.Get(code)
+	if err != nil {
+		return nil, errors.New("комната не найдена")
+	}
+	if room.Phase != game.PhaseQuestion {
+		return nil, errors.New("сейчас не фаза вопроса")
+	}
+	active := room.ActivePlayer()
+	if active == nil || active.UserID != userID {
+		return nil, errors.New("не твой ход")
+	}
+	room.CurrentAnswer = &game.AnswerRecord{Type: "voice"}
+	b.persist(room)
+	b.startVoting(room)
+	return b.currentState(code)
+}
+
+func (b *Bot) APIVote(code string, userID int64, trust bool) (*api.RoomState, error) {
+	room, err := b.store.Get(code)
+	if err != nil {
+		return nil, errors.New("комната не найдена")
+	}
+	if room.Phase != game.PhaseVoting {
+		return nil, errors.New("сейчас не фаза голосования")
+	}
+	active := room.ActivePlayer()
+	if active != nil && active.UserID == userID {
+		return nil, errors.New("активный игрок не голосует")
+	}
+	if !room.AddVote(userID, trust) {
+		return nil, errors.New("ты уже проголосовал")
+	}
+	b.persist(room)
+	if room.AllVoted() {
+		b.resolveVoting(room)
+	}
+	return b.currentState(code)
+}
+
+func (b *Bot) APISeth(code string, userID int64, optIdx int) (*api.RoomState, error) {
+	room, err := b.store.Get(code)
+	if err != nil {
+		return nil, errors.New("комната не найдена")
+	}
+	if room.Phase != game.PhaseSeth {
+		return nil, errors.New("сейчас не фаза Сета")
+	}
+	q := room.CurrentQuestion
+	if q == nil || q.Type != "seth" {
+		return nil, errors.New("нет вопроса Сета")
+	}
+	if b.sethAnswers[code] == nil {
+		b.sethAnswers[code] = make(map[int64]bool)
+	}
+	if _, already := b.sethAnswers[code][userID]; already {
+		return nil, errors.New("ты уже ответил")
+	}
+	b.sethAnswers[code][userID] = optIdx == q.CorrectOptIdx
+	b.persist(room)
+	if len(b.sethAnswers[code]) >= len(room.Players) {
+		b.resolveSeth(room)
+	}
+	return b.currentState(code)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

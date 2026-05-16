@@ -11,6 +11,8 @@ type Config struct {
 	Debug      bool
 	MaxPlayers int
 	DataDir    string
+	HTTPAddr   string // e.g. ":8080"
+	WebAppURL  string // HTTPS URL where frontend is hosted (for CORS)
 }
 
 func Load() Config {
@@ -33,10 +35,17 @@ func Load() Config {
 		dataDir = "data"
 	}
 
+	httpAddr := os.Getenv("HTTP_ADDR")
+	if httpAddr == "" {
+		httpAddr = ":8080"
+	}
+
 	return Config{
 		BotToken:   token,
 		Debug:      debug,
 		MaxPlayers: maxPlayers,
 		DataDir:    dataDir,
+		HTTPAddr:   httpAddr,
+		WebAppURL:  os.Getenv("WEB_APP_URL"),
 	}
 }
