@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useGame } from './composables/useGame'
 import { useTelegram } from './composables/useTelegram'
 import { useWebSocket } from './composables/useWebSocket'
@@ -38,8 +38,12 @@ onMounted(() => {
   }
 })
 
-// Persist room code so refresh re-joins
+// Persist room code so refresh re-joins and e2e tests can read it
 const roomCode = computed(() => state.room?.code)
+watch(roomCode, (code) => {
+  if (code) localStorage.setItem('egypt_room_code', code)
+  else localStorage.removeItem('egypt_room_code')
+})
 </script>
 
 <template>

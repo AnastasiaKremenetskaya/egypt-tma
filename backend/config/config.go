@@ -37,7 +37,12 @@ func Load() Config {
 
 	httpAddr := os.Getenv("HTTP_ADDR")
 	if httpAddr == "" {
-		httpAddr = ":8080"
+		// Railway injects PORT; fall back to 8080 for local dev
+		if port := os.Getenv("PORT"); port != "" {
+			httpAddr = ":" + port
+		} else {
+			httpAddr = ":8080"
+		}
 	}
 
 	return Config{

@@ -46,16 +46,22 @@ async function apiPost<T>(path: string, body?: unknown): Promise<T> {
     headers: headers(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error ?? 'Ошибка сервера')
-  return data as T
+  if (!res.ok) {
+    let msg = `Ошибка сервера (${res.status})`
+    try { msg = (await res.json()).error ?? msg } catch { /* non-JSON response */ }
+    throw new Error(msg)
+  }
+  return res.json() as Promise<T>
 }
 
 async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(API_BASE + path, { headers: headers() })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error ?? 'Ошибка сервера')
-  return data as T
+  if (!res.ok) {
+    let msg = `Ошибка сервера (${res.status})`
+    try { msg = (await res.json()).error ?? msg } catch { /* non-JSON response */ }
+    throw new Error(msg)
+  }
+  return res.json() as Promise<T>
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────

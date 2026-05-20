@@ -22,9 +22,15 @@ const PLAYER_2 = { id: 100000002, first_name: 'Анубис', username: 'anubis_
 
 /**
  * Injects a window.Telegram.WebApp mock before the page loads.
- * This satisfies useTelegram.ts without a real Telegram client.
+ * Also blocks the real telegram-web-app.js from telegram.org so it cannot
+ * overwrite the mock after addInitScript sets it.
  */
 async function mockTelegramWebApp(page, user, initData) {
+  // Return empty script instead of the real SDK — prevents it from wiping our mock
+  await page.route('https://telegram.org/js/telegram-web-app.js', (route) =>
+    route.fulfill({ contentType: 'application/javascript', body: '' }),
+  )
+
   await page.addInitScript(
     ({ user, initData }) => {
       window.Telegram = {
