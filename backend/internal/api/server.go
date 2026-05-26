@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/websocket"
 )
@@ -20,6 +21,8 @@ type GameActions interface {
 	APIVote(code string, userID int64, trust bool) (*RoomState, error)
 	APISeth(code string, userID int64, optIdx int) (*RoomState, error)
 	APIGetRoom(code string) (*RoomState, error)
+	APIFinishGame(code string, userID int64) (*RoomState, error)
+	APILeaveGame(code string, userID int64) error
 }
 
 // Server is the HTTP API + WebSocket server for the Mini App.
@@ -28,16 +31,18 @@ type Server struct {
 	hub       *Hub
 	botToken  string
 	webAppURL string // allowed CORS origin
+	devMode   bool   // if true, accepts "dev:{json}" initData without HMAC (local dev only)
 	log       *log.Logger
 	upgrader  websocket.Upgrader
 }
 
-func NewServer(game GameActions, hub *Hub, botToken, webAppURL string, logger *log.Logger) *Server {
+func NewServer(game GameActions, hub *Hub, botToken, webAppURL string, devMode bool, logger *log.Logger) *Server {
 	s := &Server{
 		game:      game,
 		hub:       hub,
 		botToken:  botToken,
 		webAppURL: webAppURL,
+		devMode:   devMode,
 		log:       logger,
 	}
 	s.upgrader = websocket.Upgrader{
@@ -64,6 +69,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/room/{code}/voice", s.handleVoice)
 	mux.HandleFunc("POST /api/room/{code}/vote", s.handleVote)
 	mux.HandleFunc("POST /api/room/{code}/seth", s.handleSeth)
+	mux.HandleFunc("POST /api/room/{code}/finish", s.handleFinish)
+	mux.HandleFunc("POST /api/room/{code}/leave", s.handleLeave)
 
 	return s.cors(mux)
 }
@@ -89,6 +96,12 @@ func (s *Server) cors(next http.Handler) http.Handler {
 
 // auth extracts and validates the Telegram user from the request.
 // initData can be in the X-Telegram-Init-Data header or the init_data query param (for WS).
+//
+// Dev mode: when DEV_MODE=true the server also accepts initData in the form
+//
+//	dev:{"id":111111,"username":"player1"}
+//
+// This lets you test locally without a real Telegram session. NEVER enable in production.
 func (s *Server) auth(r *http.Request) (*TelegramUser, error) {
 	initData := r.Header.Get("X-Telegram-Init-Data")
 	if initData == "" {
@@ -97,6 +110,21 @@ func (s *Server) auth(r *http.Request) (*TelegramUser, error) {
 	if initData == "" {
 		return nil, errors.New("missing init data")
 	}
+
+	// Dev-mode shortcut: skip HMAC, parse user directly from JSON payload.
+	if s.devMode && strings.HasPrefix(initData, "dev:") {
+		payload := strings.TrimPrefix(initData, "dev:")
+		var user TelegramUser
+		if err := json.Unmarshal([]byte(payload), &user); err != nil {
+			return nil, errors.New("dev mode: invalid user JSON")
+		}
+		if user.ID == 0 {
+			return nil, errors.New("dev mode: user ID must be non-zero")
+		}
+		s.log.Printf("[DEV] auth bypass for user %d (%s)", user.ID, usernameOf(&user))
+		return &user, nil
+	}
+
 	return ValidateInitData(initData, s.botToken)
 }
 
@@ -254,6 +282,35 @@ func (s *Server) handleSeth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, state)
+}
+
+func (s *Server) handleFinish(w http.ResponseWriter, r *http.Request) {
+	user, err := s.auth(r)
+	if err != nil {
+		jsonError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	code := r.PathValue("code")
+	state, err := s.game.APIFinishGame(code, user.ID)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	jsonOK(w, state)
+}
+
+func (s *Server) handleLeave(w http.ResponseWriter, r *http.Request) {
+	user, err := s.auth(r)
+	if err != nil {
+		jsonError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	code := r.PathValue("code")
+	if err := s.game.APILeaveGame(code, user.ID); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

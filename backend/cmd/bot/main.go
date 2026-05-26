@@ -41,7 +41,10 @@ func main() {
 	hub := api.NewHub(logger)
 	b.SetHub(hub)
 
-	apiServer := api.NewServer(b, hub, cfg.BotToken, cfg.WebAppURL, logger)
+	if cfg.DevMode {
+		logger.Println("⚠️  DEV_MODE=true — Telegram auth bypass active, do NOT use in production")
+	}
+	apiServer := api.NewServer(b, hub, cfg.BotToken, cfg.WebAppURL, cfg.DevMode, logger)
 
 	go func() {
 		logger.Printf("HTTP API listening on %s", cfg.HTTPAddr)

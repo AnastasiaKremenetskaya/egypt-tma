@@ -55,6 +55,7 @@ type Room struct {
 	Votes           map[int64]bool `json:"votes"` // userID → true=trust, false=lie
 
 	PhaseDeadline time.Time `json:"phase_deadline"`
+	EarlyFinish   bool      `json:"early_finish,omitempty"`
 
 	// runtime-only, not persisted to Redis
 	cancelTimer context.CancelFunc

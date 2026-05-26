@@ -10,6 +10,7 @@ const {
   state,
   activePlayer,
   isActivePlayer,
+  isAdmin,
   hasVoted,
   hasSethAnswered,
   userId,
@@ -17,14 +18,23 @@ const {
   submitVoice,
   submitVote,
   submitSeth,
+  finishGame,
+  leaveGame,
 } = useGame()
 
 const room = computed(() => state.room!)
 const tab = ref<'game' | 'score'>('game')
+const confirmFinish = ref(false)
 
 const nonActiveCount = computed(() =>
   room.value.players.filter(p => p.user_id !== activePlayer.value?.user_id).length
 )
+
+async function onFinish() {
+  if (!confirmFinish.value) { confirmFinish.value = true; return }
+  confirmFinish.value = false
+  await finishGame()
+}
 </script>
 
 <template>
@@ -95,6 +105,21 @@ const nonActiveCount = computed(() =>
         </div>
       </template>
     </main>
+
+    <!-- Bottom action bar: finish (admin) + leave (everyone) -->
+    <footer class="action-bar">
+      <template v-if="isAdmin">
+        <button
+          class="btn-finish"
+          :class="{ confirm: confirmFinish }"
+          @click="onFinish"
+          @blur="confirmFinish = false"
+        >
+          {{ confirmFinish ? '⚠️ Нажми ещё раз — завершить досрочно' : '🏁 Закончить игру' }}
+        </button>
+      </template>
+      <button class="btn-leave" @click="leaveGame">🚪 Выйти из игры</button>
+    </footer>
   </div>
 </template>
 
@@ -106,73 +131,79 @@ const nonActiveCount = computed(() =>
   background: linear-gradient(180deg, #050a16 0%, #10203a 60%, #1a2744 100%);
   position: relative;
 }
-.bg-layer {
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(180deg, #050a16 0%, #10203a 60%, #1a2744 100%);
-  z-index: -1;
-}
+.bg-layer { position: fixed; inset: 0; background: linear-gradient(180deg, #050a16 0%, #10203a 60%, #1a2744 100%); z-index: -1; }
 
 .game-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: flex; align-items: center; gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid rgba(201,146,42,.15);
   background: rgba(8,14,28,.6);
   backdrop-filter: blur(8px);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  position: sticky; top: 0; z-index: 10;
 }
 .round-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: flex; flex-direction: column; align-items: center;
   padding: 4px 12px;
   background: rgba(201,146,42,.1);
   border: 1px solid rgba(201,146,42,.25);
-  border-radius: 8px;
-  min-width: 48px;
+  border-radius: 8px; min-width: 48px;
 }
 .round-label { font-size: 9px; color: #8a9bb5; letter-spacing: 1px; }
 .round-num { font-size: 18px; font-weight: bold; color: #e8b84b; line-height: 1; }
 
-.tabs {
-  flex: 1;
-  display: flex;
-  background: rgba(0,0,0,.3);
-  border-radius: 10px;
-  overflow: hidden;
-}
+.tabs { flex: 1; display: flex; background: rgba(0,0,0,.3); border-radius: 10px; overflow: hidden; }
 .tab {
-  flex: 1;
-  padding: 8px 6px;
-  background: none;
-  border: none;
-  color: #8a9bb5;
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background .2s, color .2s;
+  flex: 1; padding: 8px 6px;
+  background: none; border: none;
+  color: #8a9bb5; font-family: inherit; font-size: 12px;
+  cursor: pointer; transition: background .2s, color .2s;
 }
 .tab.active { background: rgba(201,146,42,.2); color: #e8b84b; }
 
-.game-main {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-}
+.game-main { flex: 1; padding: 16px; overflow-y: auto; padding-bottom: 0; }
 
-.loading-state {
+/* Bottom bar with finish/leave */
+.action-bar {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  min-height: 200px;
-  color: #8a9bb5;
-  font-style: italic;
+  gap: 8px;
+  padding: 12px 16px 24px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  background: rgba(8,14,28,.5);
+  backdrop-filter: blur(6px);
+}
+
+.btn-finish {
+  width: 100%; padding: 12px;
+  background: rgba(201,146,42,.1);
+  border: 1px solid rgba(201,146,42,.3);
+  border-radius: 10px; color: #e8b84b;
+  font-family: inherit; font-size: 14px; font-weight: bold;
+  cursor: pointer; transition: background .2s, border-color .2s;
+}
+.btn-finish:hover { background: rgba(201,146,42,.18); }
+.btn-finish.confirm {
+  background: rgba(232,75,75,.15);
+  border-color: rgba(232,75,75,.45);
+  color: #e84b4b;
+  animation: pulse .5s ease;
+}
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+
+.btn-leave {
+  width: 100%; padding: 10px;
+  background: transparent;
+  border: 1px solid rgba(232,75,75,.25);
+  border-radius: 10px; color: rgba(232,75,75,.7);
+  font-family: inherit; font-size: 13px;
+  cursor: pointer; transition: background .2s;
+}
+.btn-leave:hover { background: rgba(232,75,75,.08); }
+
+.loading-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 16px; min-height: 200px;
+  color: #8a9bb5; font-style: italic;
 }
 .loading-icon { font-size: 40px; animation: spin 2s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

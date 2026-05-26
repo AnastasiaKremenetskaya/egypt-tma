@@ -12,6 +12,7 @@ const winner = computed(() => {
 })
 
 const isWinner = computed(() => winner.value?.user_id === userId)
+const earlyFinish = computed(() => room.value?.early_finish ?? false)
 </script>
 
 <template>
@@ -20,13 +21,28 @@ const isWinner = computed(() => winner.value?.user_id === userId)
 
     <div class="winner-hero">
       <div class="winner-crown">{{ isWinner ? '👑' : '🏛️' }}</div>
-      <h1 class="winner-title">{{ isWinner ? 'Ты победил!' : 'Суд завершён' }}</h1>
+
+      <h1 v-if="earlyFinish" class="winner-title early">Суд завершён досрочно</h1>
+      <h1 v-else class="winner-title">{{ isWinner ? 'Ты победил!' : 'Суд завершён' }}</h1>
+
       <p v-if="winner" class="winner-name">
-        {{ winner.username }} «{{ winner.title }}»
-        <br>
-        <span class="winner-score">{{ winner.score }} очков</span>
+        <template v-if="earlyFinish">
+          Боги завершили суд досрочно.<br>
+          Им уже очевидно, что новый Фараон — это<br>
+          <b>«{{ winner.title }}» @{{ winner.username }}</b>
+        </template>
+        <template v-else>
+          «{{ winner.title }}» @{{ winner.username }}<br>
+          <span class="winner-score">{{ winner.score }} очков</span>
+        </template>
       </p>
-      <p class="winner-sub">{{ isWinner ? 'Маат торжествует! Твоё сердце чисто.' : 'Боги вынесли приговор.' }}</p>
+
+      <p class="winner-sub">
+        {{ earlyFinish
+          ? 'Боги вынесли приговор раньше срока.'
+          : (isWinner ? 'Маат торжествует! Твоё сердце чисто.' : 'Боги вынесли приговор.')
+        }}
+      </p>
     </div>
 
     <div class="score-wrap">
@@ -39,19 +55,16 @@ const isWinner = computed(() => winner.value?.user_id === userId)
 .finished {
   min-height: 100vh;
   background: linear-gradient(180deg, #050a16 0%, #10203a 60%, #1a2744 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 32px 16px;
-  gap: 24px;
-  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 32px 16px; gap: 24px; position: relative;
 }
 .bg-layer { position: fixed; inset: 0; background: inherit; z-index: -1; }
 
 .winner-hero { text-align: center; }
 .winner-crown { font-size: 64px; margin-bottom: 12px; filter: drop-shadow(0 0 20px rgba(201,146,42,.6)); }
 .winner-title { font-size: 26px; letter-spacing: 2px; color: #e8b84b; font-weight: bold; }
-.winner-name { margin-top: 12px; color: #fef9e7; font-size: 15px; line-height: 1.6; }
+.winner-title.early { font-size: 20px; color: #c9922a; }
+.winner-name { margin-top: 12px; color: #fef9e7; font-size: 15px; line-height: 1.7; }
 .winner-score { font-size: 24px; font-weight: bold; color: #e8b84b; }
 .winner-sub { margin-top: 10px; color: #8a9bb5; font-size: 13px; font-style: italic; }
 

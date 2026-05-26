@@ -127,6 +127,25 @@ async function submitSeth(option: number): Promise<void> {
   await apiPost(`/api/room/${state.room.code}/seth`, { option })
 }
 
+async function finishGame(): Promise<void> {
+  if (!state.room) return
+  const s = await apiPost<RoomState>(`/api/room/${state.room.code}/finish`)
+  state.room = s
+}
+
+async function leaveGame(): Promise<void> {
+  if (!state.room) return
+  const code = state.room.code
+  await fetch(API_BASE + `/api/room/${code}/leave`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Telegram-Init-Data': initData,
+    },
+  })
+  state.room = null
+}
+
 function applyState(s: RoomState) {
   state.room = s
 }
@@ -150,6 +169,8 @@ export function useGame() {
     submitVoice,
     submitVote,
     submitSeth,
+    finishGame,
+    leaveGame,
     applyState,
   }
 }

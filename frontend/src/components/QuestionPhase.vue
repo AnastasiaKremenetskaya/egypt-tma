@@ -30,8 +30,7 @@ function sendAnswer() {
     <div class="phase-header">
       <div class="active-badge">
         <span class="active-icon">{{ isActivePlayer ? '🪶' : '👁' }}</span>
-        <span class="active-name">{{ activePlayer.username }}</span>
-        <span class="active-title">«{{ activePlayer.title }}»</span>
+        <span class="active-name">«{{ activePlayer.title }}» @{{ activePlayer.username }}</span>
       </div>
       <TimerBar :deadline="deadline" :total-seconds="60" />
     </div>
@@ -43,6 +42,27 @@ function sendAnswer() {
       <p class="q-text">{{ question.text }}</p>
     </div>
 
+    <!-- Seth card: show options with correct answer to spectators so they can judge -->
+    <div
+      v-if="question.type === 'seth' && question.options && !isActivePlayer"
+      class="spectator-options"
+    >
+      <div
+        v-for="(opt, i) in question.options"
+        :key="i"
+        class="opt-row"
+        :class="{
+          correct: question.correct_idx === i,
+          wrong: question.correct_idx !== undefined && question.correct_idx !== i,
+        }"
+      >
+        <span class="opt-letter">{{ String.fromCharCode(65 + i) }}</span>
+        <span class="opt-text">{{ opt }}</span>
+        <span v-if="question.correct_idx === i" class="opt-check">✓</span>
+      </div>
+      <p class="spectator-hint">Правильный ответ отмечен — оцени жреца честно</p>
+    </div>
+
     <template v-if="isActivePlayer">
       <div class="answer-area">
         <textarea
@@ -52,18 +72,19 @@ function sendAnswer() {
           rows="3"
           @keydown.enter.exact.prevent="sendAnswer"
         />
+        <button class="btn-ghost voice-btn" @click="emit('voice')">🗣️ Я ответил вслух</button>
         <button class="btn-gold" :disabled="!answerText.trim()" @click="sendAnswer">
           ⚖️ Отправить ответ
         </button>
       </div>
-      <button class="btn-ghost" @click="emit('voice')">🗣️ Я ответил вслух</button>
       <p class="hint">Боги слышат каждое слово. Жрецы будут судить твоё сердце.</p>
     </template>
 
     <template v-else>
       <div class="witness-card">
         <span class="witness-icon">👁</span>
-        <p>Глаз Гора наблюдает.<br><b>{{ activePlayer.username }}</b> держит ответ.</p>
+        <p>Глаз Гора наблюдает.<br>
+          <b>«{{ activePlayer.title }}» @{{ activePlayer.username }}</b> держит ответ.</p>
       </div>
       <p class="hint">Жди — скоро встанешь перед весами Маат.</p>
     </template>
@@ -77,7 +98,7 @@ function sendAnswer() {
 .active-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: rgba(201,146,42,.12);
   border: 1px solid rgba(201,146,42,.3);
   border-radius: 20px;
@@ -86,7 +107,6 @@ function sendAnswer() {
 }
 .active-icon { font-size: 16px; }
 .active-name { color: #e8b84b; font-weight: bold; }
-.active-title { color: #8a9bb5; font-style: italic; }
 
 .question-card {
   background: rgba(30,48,84,.7);
@@ -99,60 +119,66 @@ function sendAnswer() {
 .q-badge { font-size: 11px; color: #8a9bb5; letter-spacing: .5px; margin-bottom: 10px; }
 .q-text { font-size: 15px; line-height: 1.55; color: #fef9e7; font-style: italic; }
 
+.spectator-options { display: flex; flex-direction: column; gap: 6px; }
+.opt-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.04);
+  font-size: 14px; color: #8a9bb5;
+  transition: background .2s;
+}
+.opt-row.correct { background: rgba(76,175,80,.18); border-color: rgba(76,175,80,.55); color: #fef9e7; }
+.opt-row.wrong { opacity: .4; }
+.opt-letter {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(255,255,255,.1); color: #8a9bb5;
+  font-weight: bold; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.opt-row.correct .opt-letter { background: rgba(76,175,80,.35); color: #4caf50; }
+.opt-text { flex: 1; }
+.opt-check { color: #4caf50; font-weight: bold; font-size: 16px; }
+.spectator-hint { font-size: 11px; color: #8a9bb5; text-align: center; font-style: italic; margin-top: 2px; }
+
 .answer-area { display: flex; flex-direction: column; gap: 8px; }
 .answer-input {
   width: 100%;
   background: rgba(255,255,255,.06);
   border: 1px solid rgba(201,146,42,.3);
-  border-radius: 10px;
-  color: #fef9e7;
-  font-family: inherit;
-  font-size: 14px;
-  padding: 12px;
-  resize: none;
-  outline: none;
+  border-radius: 10px; color: #fef9e7;
+  font-family: inherit; font-size: 14px; padding: 12px;
+  resize: none; outline: none;
 }
 .answer-input:focus { border-color: #c9922a; }
 .answer-input::placeholder { color: #8a9bb5; }
 
 .btn-gold {
-  width: 100%;
-  padding: 13px;
+  width: 100%; padding: 13px;
   background: linear-gradient(135deg, #c9922a, #e8b84b);
-  color: #04060f;
-  border: none;
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: opacity .2s;
+  color: #04060f; border: none; border-radius: 10px;
+  font-family: inherit; font-size: 15px; font-weight: bold;
+  cursor: pointer; transition: opacity .2s;
 }
 .btn-gold:disabled { opacity: .4; cursor: default; }
+
+/* voice button: below textarea, above send */
 .btn-ghost {
-  width: 100%;
-  padding: 12px;
+  width: 100%; padding: 11px;
   background: transparent;
-  border: 1px solid rgba(201,146,42,.4);
-  border-radius: 10px;
-  color: #e8b84b;
-  font-family: inherit;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background .2s;
+  border: 1px solid rgba(201,146,42,.35);
+  border-radius: 10px; color: #e8b84b;
+  font-family: inherit; font-size: 13px;
+  cursor: pointer; transition: background .2s;
 }
-.btn-ghost:hover { background: rgba(201,146,42,.1); }
+.btn-ghost:hover { background: rgba(201,146,42,.08); }
 
 .witness-card {
-  text-align: center;
-  padding: 24px;
+  text-align: center; padding: 24px;
   background: rgba(255,255,255,.04);
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.08);
-  line-height: 1.6;
-  color: #8a9bb5;
+  border-radius: 14px; border: 1px solid rgba(255,255,255,.08);
+  line-height: 1.6; color: #8a9bb5;
 }
 .witness-icon { font-size: 32px; display: block; margin-bottom: 10px; }
-
 .hint { text-align: center; font-size: 12px; color: #8a9bb5; font-style: italic; }
 </style>

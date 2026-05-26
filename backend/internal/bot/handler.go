@@ -545,6 +545,7 @@ func (b *Bot) APIJoinRoom(code string, userID int64, username string) (*api.Room
 	room.AddPlayer(userID, username) // returns false if already in, that's fine
 	b.persist(room)
 	b.notifyLobby(room)
+	b.notifyHub(room) // push updated player list to all Mini App clients in lobby
 	return b.currentState(code)
 }
 
@@ -658,6 +659,93 @@ func (b *Bot) APISeth(code string, userID int64, optIdx int) (*api.RoomState, er
 		b.resolveSeth(room)
 	}
 	return b.currentState(code)
+}
+
+func (b *Bot) APIFinishGame(code string, userID int64) (*api.RoomState, error) {
+	room, err := b.store.Get(code)
+	if err != nil {
+		return nil, errors.New("комната не найдена")
+	}
+	if room.AdminID != userID {
+		return nil, errors.New("только организатор может завершить игру")
+	}
+	if room.Phase == game.PhaseFinished {
+		return b.currentState(code)
+	}
+	room.StopTimer()
+
+	// Find current leader
+	var winner *game.Player
+	for i := range room.Players {
+		if winner == nil || room.Players[i].Score > winner.Score {
+			winner = &room.Players[i]
+		}
+	}
+	winnerLabel := "неизвестен"
+	if winner != nil {
+		winnerLabel = fmt.Sprintf("%s «%s»", winner.Username, winner.Title)
+	}
+
+	room.Phase = game.PhaseFinished
+	room.EarlyFinish = true
+	b.persist(room)
+
+	msg := fmt.Sprintf(
+		"⚖️ <b>Боги завершили суд досрочно. Им уже очевидно, что новый Фараон — это %s!</b>",
+		winnerLabel,
+	)
+	b.broadcast(room, msg)
+	b.notifyHub(room)
+	return b.currentState(code)
+}
+
+func (b *Bot) APILeaveGame(code string, userID int64) error {
+	room, err := b.store.Get(code)
+	if err != nil {
+		return errors.New("комната не найдена")
+	}
+
+	// Find the leaving player
+	var leaving *game.Player
+	for i := range room.Players {
+		if room.Players[i].UserID == userID {
+			leaving = &room.Players[i]
+			break
+		}
+	}
+	if leaving == nil {
+		return errors.New("ты не в этой комнате")
+	}
+
+	displayName := fmt.Sprintf("«%s» @%s", leaving.Title, leaving.Username)
+
+	// Remove player
+	newPlayers := make([]game.Player, 0, len(room.Players)-1)
+	for _, p := range room.Players {
+		if p.UserID != userID {
+			newPlayers = append(newPlayers, p)
+		}
+	}
+	room.Players = newPlayers
+
+	// Empty room — clean up
+	if len(room.Players) == 0 {
+		room.StopTimer()
+		_ = b.store.Delete(code)
+		return nil
+	}
+
+	// Promote next player to admin if admin left
+	if room.AdminID == userID {
+		room.AdminID = room.Players[0].UserID
+	}
+
+	b.persist(room)
+
+	msg := fmt.Sprintf("😔 <b>Из игры выбыл %s.</b>\n<i>Ему никогда не стать Фараоном!</i>", displayName)
+	b.broadcast(room, msg)
+	b.notifyHub(room)
+	return nil
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

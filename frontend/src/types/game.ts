@@ -12,6 +12,7 @@ export interface QuestionView {
   type: 'maat' | 'seth'
   text: string
   options?: string[]
+  correct_idx?: number // seth only, always sent by backend
 }
 
 export interface AnswerView {
@@ -33,6 +34,7 @@ export interface RoomState {
   voted_ids: number[]
   seth_answered_ids: number[]
   phase_deadline: string // ISO date string
+  early_finish?: boolean
 }
 
 export interface WSMessage {

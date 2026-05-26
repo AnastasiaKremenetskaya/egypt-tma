@@ -9,6 +9,7 @@ import (
 type Config struct {
 	BotToken   string
 	Debug      bool
+	DevMode    bool // DEV_MODE=true — bypasses Telegram initData HMAC (local dev only)
 	MaxPlayers int
 	DataDir    string
 	HTTPAddr   string // e.g. ":8080"
@@ -22,6 +23,7 @@ func Load() Config {
 	}
 
 	debug := os.Getenv("DEBUG") == "true"
+	devMode := os.Getenv("DEV_MODE") == "true"
 
 	maxPlayers := 8
 	if s := os.Getenv("MAX_PLAYERS"); s != "" {
@@ -48,6 +50,7 @@ func Load() Config {
 	return Config{
 		BotToken:   token,
 		Debug:      debug,
+		DevMode:    devMode,
 		MaxPlayers: maxPlayers,
 		DataDir:    dataDir,
 		HTTPAddr:   httpAddr,

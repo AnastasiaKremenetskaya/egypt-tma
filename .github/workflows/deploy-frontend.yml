@@ -35,7 +35,10 @@ jobs:
       - name: Build
         working-directory: frontend
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          # Fallback to the value in .env.production if the secret is not set.
+          # Without this, an empty secret overrides .env.production and API calls
+          # go to GitHub Pages instead of Railway, producing 405 errors.
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://egypt-tma.up.railway.app' }}
         run: npm run build
 
       - uses: actions/upload-pages-artifact@v3

@@ -7,7 +7,6 @@ import (
 )
 
 // RoomState is the sanitised room snapshot sent to Mini App clients.
-// It intentionally hides individual vote choices and Seth correct-answer index.
 type RoomState struct {
 	Code            string        `json:"code"`
 	AdminID         int64         `json:"admin_id"`
@@ -22,6 +21,7 @@ type RoomState struct {
 	VotedIDs        []int64       `json:"voted_ids"`
 	SethAnsweredIDs []int64       `json:"seth_answered_ids"`
 	PhaseDeadline   time.Time     `json:"phase_deadline"`
+	EarlyFinish     bool          `json:"early_finish,omitempty"` // true when admin ended game manually
 }
 
 type PlayerView struct {
@@ -31,12 +31,15 @@ type PlayerView struct {
 	Score    int    `json:"score"`
 }
 
-// QuestionView omits the correct answer index during active Seth phase.
+// QuestionView carries question data for the Mini App.
+// CorrectIdx is always sent for Seth questions so the frontend can reveal
+// the right answer after the player has submitted (client-side reveal).
 type QuestionView struct {
-	ID      string   `json:"id"`
-	Type    string   `json:"type"` // "maat" | "seth"
-	Text    string   `json:"text"`
-	Options []string `json:"options,omitempty"`
+	ID         string   `json:"id"`
+	Type       string   `json:"type"` // "maat" | "seth"
+	Text       string   `json:"text"`
+	Options    []string `json:"options,omitempty"`
+	CorrectIdx *int     `json:"correct_idx,omitempty"` // Seth only
 }
 
 type AnswerView struct {
@@ -69,6 +72,10 @@ func RoomStateFrom(room *game.Room, sethAnsweredIDs []int64) RoomState {
 			Type:    room.CurrentQuestion.Type,
 			Text:    room.CurrentQuestion.Text,
 			Options: room.CurrentQuestion.Options,
+		}
+		if room.CurrentQuestion.Type == "seth" && len(room.CurrentQuestion.Options) > 0 {
+			idx := room.CurrentQuestion.CorrectOptIdx
+			q.CorrectIdx = &idx
 		}
 	}
 
@@ -109,5 +116,6 @@ func RoomStateFrom(room *game.Room, sethAnsweredIDs []int64) RoomState {
 		VotedIDs:        votedIDs,
 		SethAnsweredIDs: sethAnsweredIDs,
 		PhaseDeadline:   room.PhaseDeadline,
+		EarlyFinish:     room.EarlyFinish,
 	}
 }
